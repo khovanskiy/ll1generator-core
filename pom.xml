@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.khovanskiy</groupId>
-    <artifactId>ll1-generator-core</artifactId>
+    <artifactId>ll1generator-core</artifactId>
     <version>1.0.0</version>
 
     <packaging>jar</packaging>
@@ -28,6 +28,23 @@
     <build>
         <finalName>${project.artifactId}</finalName>
         <plugins>
+            <plugin>
+                <groupId>org.antlr</groupId>
+                <artifactId>antlr4-maven-plugin</artifactId>
+                <version>4.5</version>
+                <configuration>
+                    <sourceDirectory>${project.basedir}/src/main/resources</sourceDirectory>
+                    <outputDirectory>${project.basedir}/target/generated-sources/com/khovanskiy/ll1generator/core</outputDirectory>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>antlr</id>
+                        <goals>
+                            <goal>antlr4</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
             <!--Single jar is bad, because some JAX RS classes can't load normally-->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -56,7 +73,7 @@
                         <manifest>
                             <addClasspath>true</addClasspath>
                             <classpathPrefix>lib/</classpathPrefix>
-                            <mainClass>com.khovanskiy.ll1-generator.core.LL1GeneratorCoreMain</mainClass>
+                            <mainClass>com.khovanskiy.ll1generator.core.LL1GeneratorCoreMain</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
