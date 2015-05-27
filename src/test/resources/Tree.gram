@@ -1,0 +1,31 @@
+s returns Tree : s1 EOF {return new Tree("s", s1.get(0));}
+    | EOF {return new Tree("s", new Tree("EOF"));}
+    ;
+
+s1 returns Tree : SGN ws s1 ws s1 { return new Tree("s1", new Tree("SGN"), ws.get(0), s1.get(0), ws.get(0), s1.get(0)); }
+    | num {return new Tree("s1", num.get(0));}
+    ;
+
+num returns Tree : NONZERO num_cont {return new Tree("num", new Tree("NONZERO"), num_cont.get(0));}
+    | ZERO {return new Tree("num", new Tree("ZERO"));}
+    ;
+
+num_cont returns Tree : digit num_cont {return new Tree("num_cont", digit.get(0), num_cont.get(0));}
+    | {return new Tree("num_cont", new Tree("EPS"));}
+    ;
+
+digit returns Tree : ZERO {return new Tree("digit", new Tree("ZERO"));}
+    | NONZERO {return new Tree("digit", new Tree("NONZERO"));}
+    ;
+
+ws returns Tree : WS ws {return new Tree("ws", new Tree("WS"), ws.get(0));}
+   | {return new Tree("ws", new Tree("EPS"));}
+   ;
+
+ZERO : '0' ;
+NONZERO : '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' ;
+SGN : '+'
+    | '-'
+    | '*'
+    | '/' ;
+WS : ' ' | '\t' | '\r' | '\n' ;
