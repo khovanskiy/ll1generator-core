@@ -1,0 +1,30 @@
+@header {
+import org.StructureGraphic.v1.DSTreeNode;
+import java.awt.*;
+import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.List;
+}
+
+@members {
+}
+
+pascal_exp returns [ Tree ] : boolexp { return new Tree("pascal_exp", $boolexp.tree); };
+
+boolexp returns [ Tree ] : term boolexp_prime { return new Tree("boolexp", $term.tree, $boolexp_prime.tree); };
+
+boolexp_prime returns [ Tree ] : OR term boolexp_prime { return new Tree("boolexp_prime", new Tree("OR"), $term.tree, $boolexp_prime.tree); } | XOR term boolexp_prime { return new Tree("boolexp_prime", new Tree("XOR"), $term.tree, $boolexp_prime.tree); } | ;
+
+term returns [ Tree ] : factor term_prime { return new Tree("term", $factor.tree, $term_prime.tree); };
+
+term_prime returns [ Tree ] : AND factor term_prime { return new Tree("term_prime", new Tree("AND"), $factor.tree, $term_prime.tree); }| ;
+
+factor returns [ Tree ] :  VAR  { return new Tree("factor", new Tree("VAR")); } | NOT factor { return new Tree("factor", new Tree("NOT"), $factor.tree); } |  LEFT_PAREN boolexp RIGHT_PAREN { return new Tree("factor", new Tree("("), $boolexp.tree, new Tree(")")); };
+
+VAR : 'a'|'b'|'c'|'d';
+AND : 'and' ;
+OR : 'or' ;
+XOR : 'xor' ;
+NOT : 'not' ;
+LEFT_PAREN : '(';
+RIGHT_PAREN : ')';

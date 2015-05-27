@@ -1,0 +1,15 @@
+@header {
+}
+
+@members {
+
+}
+
+R : T;
+R : R | T;
+T : EPS;
+T : TF;
+F : F*;
+F : N;
+N : (R);
+N : c;
