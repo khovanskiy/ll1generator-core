@@ -10,7 +10,12 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * @author Victo Khovanskiy
@@ -47,38 +52,43 @@ public class Generator {
             @Override
             public void enterNonTerminalLabel(@NotNull GrammarParser.NonTerminalLabelContext ctx) {
                 String name = ctx.NON_TERM_NAME().getText();
-                Item curNode = getNonTerm(name);
+                Item currentNode = getNonTerm(name);
 
-                if(ctx.synthesized() != null) {
-                    if(ctx.synthesized().NON_TERM_NAME() != null) {
-                        curNode.setRetType(ctx.synthesized().NON_TERM_NAME().getText());
+                if (ctx.synthesized() != null) {
+                    if (ctx.synthesized().NON_TERM_NAME() != null) {
+                        currentNode.setReturnType(ctx.synthesized().NON_TERM_NAME().getText());
                     } else if (ctx.synthesized().TERM_NAME() != null) {
-                        curNode.setRetType(ctx.synthesized().TERM_NAME().getText());
+                        currentNode.setReturnType(ctx.synthesized().TERM_NAME().getText());
                     } else {
-                        curNode.setRetType(ctx.synthesized().MIXED_CASE().getText());
+                        currentNode.setReturnType(ctx.synthesized().MIXED_CASE().getText());
                     }
                 }
 
-                for (GrammarParser.Non_term_prodContext non_term_prodCtx : ctx.non_term_prod()) {
+                if (ctx.inherited() != null) {
+
+                }
+
+                for (GrammarParser.NonterminalProductionContext nonterminalContext : ctx.nonterminalProduction()) {
                     Production production = new Production();
 
-                    if (non_term_prodCtx.non_term_prod_helper().isEmpty()) {
+                    if (nonterminalContext.nonterminalVariant().isEmpty()) {
                         production.add(getTerm(EPS).getName());
                     }
 
-                    for (GrammarParser.Non_term_prod_helperContext non_term_prod_helperCtx : non_term_prodCtx.non_term_prod_helper()) {
-                        if (non_term_prod_helperCtx.NON_TERM_NAME() != null) {
-                            production.add(non_term_prod_helperCtx.NON_TERM_NAME().getText());
+                    for (GrammarParser.NonterminalVariantContext variantContext : nonterminalContext
+                            .nonterminalVariant()) {
+                        if (variantContext.NON_TERM_NAME() != null) {
+                            production.add(variantContext.NON_TERM_NAME().getText());
                         } else {
-                            production.add(non_term_prod_helperCtx.TERM_NAME().getText());
+                            production.add(variantContext.TERM_NAME().getText());
                         }
                     }
 
-                    if(non_term_prodCtx.JAVA_CODE() != null) {
-                        production.setJavaCode(non_term_prodCtx.JAVA_CODE().getText());
+                    if (nonterminalContext.JAVA_CODE() != null) {
+                        production.setJavaCode(refactor(nonterminalContext.JAVA_CODE().getText()));
                     }
 
-                    curNode.add(production);
+                    currentNode.add(production);
                 }
             }
 
@@ -87,10 +97,10 @@ public class Generator {
                 String name = ctx.TERM_NAME().getText();
                 Item curNode = getTerm(name);
 
-                for (GrammarParser.Term_prodContext term_prodCtx : ctx.term_prod()) {
+                for (GrammarParser.TerminalProductionContext terminalContext : ctx.terminalProduction()) {
                     Production production = new Production();
                     String s = "";
-                    for (TerminalNode term : term_prodCtx.STRING()) {
+                    for (TerminalNode term : terminalContext.STRING()) {
                         s += term.getText().substring(1);
                         s = s.substring(0, s.length() - 1);
                     }
@@ -101,7 +111,7 @@ public class Generator {
 
             @Override
             public void enterMembersLabel(@NotNull GrammarParser.MembersLabelContext ctx) {
-                if(ctx.JAVA_CODE() != null) {
+                if (ctx.JAVA_CODE() != null) {
                     members = ctx.JAVA_CODE().getText().substring(1);
                     members = members.substring(0, members.length() - 1);
                 }
@@ -109,7 +119,7 @@ public class Generator {
 
             @Override
             public void enterHeaderLabel(@NotNull GrammarParser.HeaderLabelContext ctx) {
-                if(ctx.JAVA_CODE() != null) {
+                if (ctx.JAVA_CODE() != null) {
                     header = ctx.JAVA_CODE().getText().substring(1);
                     header = header.substring(0, header.length() - 1);
                 }
@@ -166,51 +176,52 @@ public class Generator {
 
         out.println(header);
 
+        out.println("\nimport java.io.IOException;");
+        out.println("import java.io.InputStream;");
+        out.println("import java.text.ParseException;\n");
+
+        out.println("public class " + LEXER_NAME + " {");
+        out.println("\tprivate InputStream is;");
+        out.println("\tprivate int curChar;");
+        out.println("\tprivate int curPos;");
+        out.println("\tprivate Token curToken;");
+        out.println("\tprivate String curString;\n");
+        out.println("\tpublic " + LEXER_NAME + "(InputStream is) throws ParseException {");
+        out.println("\t\tthis.is = is;");
+        out.println("\t\tcurPos = 0;");
+        out.println("\t\tnextChar();");
+        out.println("\t}\n");
+
         out.println(
-                "import java.io.IOException;\n" +
-                        "import java.io.InputStream;\n" +
-                        "import java.text.ParseException;\n" +
-                        "\n" +
-                        "public class " + LEXER_NAME + " {\n" +
-                        "    private InputStream is;\n" +
-                        "    private int curChar;\n" +
-                        "    private int curPos;\n" +
-                        "    private Token curToken;\n" +
-                        "    private String curString;\n" +
-                        "    \n" +
-                        "    public " + LEXER_NAME + "(InputStream is) throws ParseException {\n" +
-                        "        this.is = is;\n" +
-                        "        curPos = 0;\n" +
-                        "        nextChar();\n" +
-                        "    }\n" +
-                        "\n" +
-//                        "    private boolean isBlank(int c) { return c == ' ' || c == '\\r' || c == '\\n' || c == '\\t'; }\n" +
-//                        "\n" +
-                        "    private void nextChar() throws ParseException {\n" +
-                        "        curPos++;\n" +
-                        "        try {\n" +
-                        "            curChar = is.read();\n" +
-                        "        } catch (IOException e) {\n" +
-                        "            throw new ParseException(e.getMessage(), curPos);\n" +
-                        "        }\n" +
-                        "    }\n" +
-                        "\n" +
-                        "    public Token curToken() { return curToken; }\n" +
-                        "\n" +
-                        "    public int curPos() { return curPos; }\n" +
-                        "\n" +
-                        "    public String curString() { return curString; }\n" +
-                        "\n" +
-                        "    public void nextToken() throws ParseException {\n" +
-                        "        curString = \"\";\n" +
-//                        "        while (isBlank(curChar)) {\n" +
-//                        "            nextChar();\n" +
-//                        "        }\n" +
-                        "        if (curChar == -1) {\n" +
-                        "            curToken = Token.EOF;\n" +
-                        "            return;\n" +
-                        "        }\n"
-        );
+                "\tprivate boolean isBlank(int c) { return c == ' ' || c == '\\r' || c == '\\n' || c == '\\t'; }\n");
+
+        out.println("\tprivate void nextChar() throws ParseException {");
+        out.println("\t\tcurPos++;");
+        out.println("\t\ttry {");
+        out.println("\t\t\tcurChar = is.read();");
+        out.println("\t\t} catch (IOException e) {");
+        out.println("\t\t\tthrow new ParseException(e.getMessage(), curPos);");
+        out.println("\t\t}");
+        out.println("\t}\n");
+
+        out.println("\tpublic Token curToken() {\n\t\treturn curToken;\n\t}\n");
+
+        out.println("\tpublic int curPos() {\n\t\treturn curPos;\n\t}\n");
+
+        out.println("\tpublic String curString() {\n\t\treturn curString;\n\t}\n");
+
+        out.println("\tpublic void nextToken() throws ParseException {");
+        out.println("\t\tcurString = \"\";\n");
+
+        /*out.println("\t\twhile (isBlank(curChar)) {");
+        out.println("\t\t\tnextChar();");
+        out.println("\t\t}");*/
+
+        out.println("\t\tif (curChar == -1) {");
+        out.println("\t\t\tcurToken = Token.EOF;");
+        out.println("\t\t\treturn;");
+        out.println("\t\t}");
+
         boolean first = true;
         for (String curStringTerminal : terminals.keySet()) {
             for (Production productionString : terminals.get(curStringTerminal).getProductionList()) {
@@ -244,68 +255,52 @@ public class Generator {
 
         out.println(header);
 
-        out.print(
-                "import java.io.InputStream;\n" +
-                        "import java.text.ParseException;\n" +
-                        "import java.util.ArrayList;\n" +
-                        "import java.util.List;\n");
+        out.println("\nimport java.io.InputStream;");
+        out.println("import java.text.ParseException;");
+        out.println("import java.util.ArrayList;");
+        out.println("import java.util.List;\n");
 
+        out.println("\npublic class " + PARSER_NAME + " {");
+        out.println("\n\nprivate " + LEXER_NAME + " lex;\n");
 
-        out.print(
-                "\n" +
-                        "public class " + PARSER_NAME + " {\n" +
-                        "    private " + LEXER_NAME + " lex;\n");
+        out.println(prefix("\t", refactor(members)));
 
-        out.println(members);
-
-        out.println(String.format(
-                "\n" +
-                        "    public %s parse(InputStream is) throws ParseException {\n" +
-                        "        lex = new " + LEXER_NAME + "(is);\n" +
-                        "        lex.nextToken();\n" +
-                        "        %s" + start.getName() + "();\n" +
-                        "    }\n",
-                start.getRetType(),
-                start.getRetType().equals("void") ? "" : "return "
-        ));
+        out.println("\n\tpublic " + start.getReturnType() + " parse(InputStream is) throws ParseException {");
+        out.println("\t\tlex = new " + LEXER_NAME + "(is);");
+        out.println("\t\tlex.nextToken();");
+        out.println("\t\t" + (start.getReturnType().equals("void") ? "" : "return ") + start.getName() + "();");
+        out.println("\t}\n");
 
         for (String nonTerm : nonTerminals.keySet()) {
-            out.print(String.format(
-                    "    private %s " + nonTerm + "() throws ParseException {\n" +
-                            "        switch (lex.curToken()) {\n",
-                    getNonTerm(nonTerm).getRetType()
-            ));
+            out.println("\tprivate " + getNonTerm(nonTerm).getReturnType() + " " + nonTerm + "() throws ParseException {");
+            out.println("\t\tswitch (lex.curToken()) {");
 
-            Set<String> set = new HashSet<String>(first.get(nonTerm));
-            if(set.contains(EPS))
+            Set<String> set = new HashSet<>(first.get(nonTerm));
+            if (set.contains(EPS)) {
                 set.addAll(follow.get(nonTerm));
+            }
             set.remove(EPS);
 
             for (String term : set) {
-                out.print(
-                        "            case " + term + ":\n" +
-                                "            {\n"
-                );
+                out.println("\t\t\tcase " + term + ": {");
+
                 boolean ret = false;
                 int suitableProds = 0;
                 Set<String> rules = new HashSet<>();
                 for (Production prod : nonTerminals.get(nonTerm).getProductionList()) {
                     if (suitableProds == 0 && prod.get(0).equals(EPS)) {
-                        if(!prod.getJavaCode().isEmpty()) {
-                            out.println(prod.getJavaCode());
+                        if (!prod.getJavaCode().isEmpty()) {
+                            out.println(prefix("\t\t\t\t", prod.getJavaCode()));
                             ret = true;
                         }
                     } else if (first.get(prod.get(0)).contains(term)) {
                         for (String i : prod.getItems()) {
-                            if(!rules.contains(i)) {
-                                if (nonTerminals.containsKey(i) && !getNonTerm(i).getRetType().equals("void")) {
-                                    out.print(String.format(
-                                            "                List<%1$s> " + i + " = new ArrayList<%1$s>();\n",
-                                            getNonTerm(i).getRetType()
-                                    ));
+                            if (!rules.contains(i)) {
+                                if (nonTerminals.containsKey(i) && !getNonTerm(i).getReturnType().equals("void")) {
+                                    out.println("\t\t\t\tList<" + getNonTerm(i).getReturnType() + "> " + i + " = new ArrayList<>();");
                                     rules.add(i);
                                 } else if (terminals.containsKey(i)) {
-                                    out.print("                List<String> " + i + " = new ArrayList<String>();\n");
+                                    out.print("\t\t\t\tList<String> " + i + " = new ArrayList<>();\n");
                                     rules.add(i);
                                 }
                             }
@@ -314,24 +309,22 @@ public class Generator {
                         suitableProds++;
                         for (String i : prod.getItems()) {
                             if (terminals.containsKey(i)) {
-                                out.print(String.format(
-                                        "                if (lex.curToken().toString().equals(\"%1$s\")) {\n" +
-                                                "                    " + i + ".add(lex.curString());\n" +
-//                                                "                    children.add(new Tree(lex.curToken().toString(), new Tree(lex.curString())));\n" +
-                                                "                } else {\n" +
-                                                "                    throw new AssertionError(\"%1$s expected, instead of \" + lex.curToken().toString());\n" +
-                                                "                }\n" +
-                                                "                lex.nextToken();\n", i
-                                ));
-                            } else if(nonTerminals.containsKey(i) && !getNonTerm(i).getRetType().equals("void")) {
-//                                out.print(String.format("                children.add(new Tree(\"%1$s\", %1$s()));\n", i));
-                                out.print(String.format("                " + i + ".add(%s());\n", i));
+                                out.println("\t\t\t\tif (lex.curToken().toString().equals(\"" + i + "\")) {");
+                                out.println("\t\t\t\t\t" + i + ".add(lex.curString());");
+//                              //out.println("      "                    children.add(new Tree(lex.curToken().toString(), new Tree(lex.curString())));\n" +
+                                out.println("\t\t\t\t} else {");
+                                out.println("\t\t\t\t\tthrow new AssertionError(\"" + i + " expected, instead of \" + lex.curToken().toString());");
+                                out.println("\t\t\t\t}");
+                                out.println("\t\t\t\tlex.nextToken();");
+                            } else if (nonTerminals.containsKey(i) && !getNonTerm(i).getReturnType().equals("void")) {
+//                              //out.print(String.format("                children.add(new Tree(\"%1$s\", %1$s()));\n", i));
+                                out.print(String.format("\t\t\t\t" + i + ".add(" + i + "());\n", i));
                             } else {
-                                out.print(String.format("                %s();\n", i));
+                                out.print(String.format("\t\t\t\t%s();\n", i));
                             }
                         }
-                        if(!prod.getJavaCode().isEmpty()) {
-                            out.println("\t\t\t\t" + prod.getJavaCode());
+                        if (!prod.getJavaCode().isEmpty()) {
+                            out.println(prefix("\t\t\t\t", prod.getJavaCode()));
                             ret = true;
                         }
                     }
@@ -360,6 +353,25 @@ public class Generator {
 
         out.print("}\n");
         out.close();
+    }
+
+    private String refactor(String content) {
+        content = content.trim();
+        if (content.charAt(0) == '{' && content.charAt(content.length() - 1) == '}') {
+            return content.substring(1, content.length() - 1).trim();
+        }
+        return content;
+    }
+
+    private String prefix(String prefix, String content) {
+        StringBuilder builder = new StringBuilder();
+
+        for (String s : content.split("\\n")) {
+            builder.append(prefix);
+            builder.append(s);
+        }
+
+        return builder.toString();
     }
 
     private void generateTokens() throws IOException {
@@ -429,7 +441,7 @@ public class Generator {
 
     private void computeFollow() {
         for (String name : nonTerminals.keySet()) {
-            follow.put(name, new HashSet<String>());
+            follow.put(name, new HashSet<>());
         }
 
         follow.get(start.getName()).add(EOF);
@@ -458,7 +470,7 @@ public class Generator {
                             }
                         }
                     }
-                    if(production.size() > 1 && first.get(production.get(production.size() - 1)).contains(EPS)) {
+                    if (production.size() > 1 && first.get(production.get(production.size() - 1)).contains(EPS)) {
                         i = production.size() - 2;
                         if (nonTerminals.containsKey(production.get(i))) {
                             for (String cur : follow.get(production.get(i + 1))) {

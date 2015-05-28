@@ -2,45 +2,54 @@
 package com.khovanskiy.ll1generator.core;
 import com.khovanskiy.ll1generator.core.Tree;
 
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.ParseException;
 
 public class RegexpLexer {
-    private InputStream is;
-    private int curChar;
-    private int curPos;
-    private Token curToken;
-    private String curString;
-    
-    public RegexpLexer(InputStream is) throws ParseException {
-        this.is = is;
-        curPos = 0;
-        nextChar();
-    }
+	private InputStream is;
+	private int curChar;
+	private int curPos;
+	private Token curToken;
+	private String curString;
 
-    private void nextChar() throws ParseException {
-        curPos++;
-        try {
-            curChar = is.read();
-        } catch (IOException e) {
-            throw new ParseException(e.getMessage(), curPos);
-        }
-    }
+	public RegexpLexer(InputStream is) throws ParseException {
+		this.is = is;
+		curPos = 0;
+		nextChar();
+	}
 
-    public Token curToken() { return curToken; }
+	private boolean isBlank(int c) { return c == ' ' || c == '\r' || c == '\n' || c == '\t'; }
 
-    public int curPos() { return curPos; }
+	private void nextChar() throws ParseException {
+		curPos++;
+		try {
+			curChar = is.read();
+		} catch (IOException e) {
+			throw new ParseException(e.getMessage(), curPos);
+		}
+	}
 
-    public String curString() { return curString; }
+	public Token curToken() {
+		return curToken;
+	}
 
-    public void nextToken() throws ParseException {
-        curString = "";
-        if (curChar == -1) {
-            curToken = Token.EOF;
-            return;
-        }
+	public int curPos() {
+		return curPos;
+	}
 
+	public String curString() {
+		return curString;
+	}
+
+	public void nextToken() throws ParseException {
+		curString = "";
+
+		if (curChar == -1) {
+			curToken = Token.EOF;
+			return;
+		}
         if ("|".startsWith(String.valueOf((char) curChar))) {
             curToken = Token.OR;
             while(curString.length() < "|".length()) {

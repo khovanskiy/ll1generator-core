@@ -8,8 +8,8 @@ import java.util.List;
  */
 public class Item {
     private String name;
-    private String retType = "void";
-    private List<Production> productionList = new ArrayList<Production>();
+    private String returnType = "void";
+    private List<Production> productionList = new ArrayList<>();
 
     public Item(String name) {
         this.name = name;
@@ -24,12 +24,12 @@ public class Item {
         return name;
     }
 
-    public void setRetType(String s) {
-        retType = s;
+    public void setReturnType(String s) {
+        this.returnType = s;
     }
 
-    public String getRetType() {
-        return retType;
+    public String getReturnType() {
+        return this.returnType;
     }
 
     public void add(Production production) {
