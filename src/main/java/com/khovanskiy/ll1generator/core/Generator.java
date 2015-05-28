@@ -27,10 +27,10 @@ public class Generator {
     private static final String EPS = "EPS";
 
     private String grammar_name;
-    private Item start;
+    private Node start;
 
-    private final HashMap<String, Item> nonTerminals = new HashMap<>();
-    private final HashMap<String, Item> terminals = new HashMap<>();
+    private final HashMap<String, Node> nonTerminals = new HashMap<>();
+    private final HashMap<String, Node> terminals = new HashMap<>();
     private final HashMap<String, HashSet<String>> first = new HashMap<>();
     private final HashMap<String, HashSet<String>> follow = new HashMap<>();
 
@@ -52,7 +52,7 @@ public class Generator {
             @Override
             public void enterNonTerminalLabel(@NotNull GrammarParser.NonTerminalLabelContext ctx) {
                 String name = ctx.NON_TERM_NAME().getText();
-                Item currentNode = getNonTerm(name);
+                Node currentNode = getNonTerm(name);
 
                 if (ctx.synthesized() != null) {
                     if (ctx.synthesized().NON_TERM_NAME() != null) {
@@ -65,22 +65,29 @@ public class Generator {
                 }
 
                 if (ctx.inherited() != null) {
-
+                    //currentNode.setAttrs(ctx.inherited().ATTRS().getText());
+                    for (GrammarParser.ArgContext arg : ctx.inherited().declAttrs().arg()) {
+                        //System.out.println(arg.argName().getText() + " " + arg.argType().getText());
+                        currentNode.setAttrs(arg.argName().getText(), arg.argType().getText());
+                    }
                 }
 
                 for (GrammarParser.NonterminalProductionContext nonterminalContext : ctx.nonterminalProduction()) {
                     Production production = new Production();
 
+                    production.setAttrs("ATTRS " + nonterminalContext.callAttrs());
+
+
                     if (nonterminalContext.nonterminalVariant().isEmpty()) {
-                        production.add(getTerm(EPS).getName());
+                        production.add(getTerm(EPS));
                     }
 
                     for (GrammarParser.NonterminalVariantContext variantContext : nonterminalContext
                             .nonterminalVariant()) {
                         if (variantContext.NON_TERM_NAME() != null) {
-                            production.add(variantContext.NON_TERM_NAME().getText());
+                            production.add(getNonTerm(variantContext.NON_TERM_NAME().getText()));
                         } else {
-                            production.add(variantContext.TERM_NAME().getText());
+                            production.add(getTerm(variantContext.TERM_NAME().getText()));
                         }
                     }
 
@@ -95,7 +102,7 @@ public class Generator {
             @Override
             public void enterTerminalLabel(@NotNull GrammarParser.TerminalLabelContext ctx) {
                 String name = ctx.TERM_NAME().getText();
-                Item curNode = getTerm(name);
+                Node curNode = getTerm(name);
 
                 for (GrammarParser.TerminalProductionContext terminalContext : ctx.terminalProduction()) {
                     Production production = new Production();
@@ -104,7 +111,7 @@ public class Generator {
                         s += term.getText().substring(1);
                         s = s.substring(0, s.length() - 1);
                     }
-                    production.add(s);
+                    production.add(new Node(s));
                     curNode.add(production);
                 }
             }
@@ -154,16 +161,16 @@ public class Generator {
         }
     }
 
-    private Item getTerm(String name) {
+    private Node getTerm(String name) {
         if (!terminals.containsKey(name)) {
-            terminals.put(name, new Item(name));
+            terminals.put(name, new Node(name));
         }
         return terminals.get(name);
     }
 
-    private Item getNonTerm(String name) {
+    private Node getNonTerm(String name) {
         if (!nonTerminals.containsKey(name)) {
-            nonTerminals.put(name, new Item(name));
+            nonTerminals.put(name, new Node(name));
         }
         return nonTerminals.get(name);
     }
@@ -242,7 +249,7 @@ public class Generator {
                 first = false;
             }
         }
-        out.println("    }\n}");
+        out.println("\t}\n}");
         out.close();
     }
 
@@ -265,14 +272,14 @@ public class Generator {
 
         out.println(prefix("\t", refactor(members)));
 
-        out.println("\n\tpublic " + start.getReturnType() + " parse(InputStream is) throws ParseException {");
+        out.println("\n\tpublic " + start.getReturnType() + " parse(InputStream is" + (start.getAttrs().isEmpty() ? "" : ", " + start.getDeclAttrs()) + ") throws ParseException {");
         out.println("\t\tlex = new " + LEXER_NAME + "(is);");
         out.println("\t\tlex.nextToken();");
-        out.println("\t\t" + (start.getReturnType().equals("void") ? "" : "return ") + start.getName() + "();");
+        out.println("\t\t" + (start.getReturnType().equals("void") ? "" : "return ") + start.getName() + "(" + start.getCallAttrs() + ");");
         out.println("\t}\n");
 
         for (String nonTerm : nonTerminals.keySet()) {
-            out.println("\tprivate " + getNonTerm(nonTerm).getReturnType() + " " + nonTerm + "() throws ParseException {");
+            out.println("\tprivate " + getNonTerm(nonTerm).getReturnType() + " " + nonTerm + "(" + getNonTerm(nonTerm).getDeclAttrs() + ") throws ParseException {");
             out.println("\t\tswitch (lex.curToken()) {");
 
             Set<String> set = new HashSet<>(first.get(nonTerm));
@@ -288,39 +295,42 @@ public class Generator {
                 int suitableProds = 0;
                 Set<String> rules = new HashSet<>();
                 for (Production prod : nonTerminals.get(nonTerm).getProductionList()) {
-                    if (suitableProds == 0 && prod.get(0).equals(EPS)) {
+                    if (suitableProds == 0 && prod.get(0).getName().equals(EPS)) {
                         if (!prod.getJavaCode().isEmpty()) {
                             out.println(prefix("\t\t\t\t", prod.getJavaCode()));
                             ret = true;
                         }
-                    } else if (first.get(prod.get(0)).contains(term)) {
-                        for (String i : prod.getItems()) {
-                            if (!rules.contains(i)) {
-                                if (nonTerminals.containsKey(i) && !getNonTerm(i).getReturnType().equals("void")) {
-                                    out.println("\t\t\t\tList<" + getNonTerm(i).getReturnType() + "> " + i + " = new ArrayList<>();");
-                                    rules.add(i);
-                                } else if (terminals.containsKey(i)) {
-                                    out.print("\t\t\t\tList<String> " + i + " = new ArrayList<>();\n");
-                                    rules.add(i);
+                    } else if (first.get(prod.get(0).getName()).contains(term)) {
+                        for (Node node : prod.getNodes()) {
+                            String name = node.getName();
+                            if (!rules.contains(node.getName())) {
+                                if (nonTerminals.containsKey(name) && !getNonTerm(name).getReturnType().equals("void")) {
+                                    out.println("\t\t\t\tList<" + getNonTerm(name).getReturnType() + "> " + name + " = new ArrayList<>();");
+                                    rules.add(node.getName());
+                                } else if (terminals.containsKey(name)) {
+                                    out.print("\t\t\t\tList<String> " + name + " = new ArrayList<>();\n");
+                                    rules.add(name);
                                 }
                             }
                         }
 
                         suitableProds++;
-                        for (String i : prod.getItems()) {
-                            if (terminals.containsKey(i)) {
-                                out.println("\t\t\t\tif (lex.curToken().toString().equals(\"" + i + "\")) {");
-                                out.println("\t\t\t\t\t" + i + ".add(lex.curString());");
+
+                        for (Node node : prod.getNodes()) {
+                            String name = node.getName();
+                            if (terminals.containsKey(node.getName())) {
+                                out.println("\t\t\t\tif (lex.curToken().toString().equals(\"" + name + "\")) {");
+                                out.println("\t\t\t\t\t" + name + ".add(lex.curString());");
 //                              //out.println("      "                    children.add(new Tree(lex.curToken().toString(), new Tree(lex.curString())));\n" +
                                 out.println("\t\t\t\t} else {");
-                                out.println("\t\t\t\t\tthrow new AssertionError(\"" + i + " expected, instead of \" + lex.curToken().toString());");
+                                out.println("\t\t\t\t\tthrow new AssertionError(\"" + name + " expected, instead of \" + lex.curToken().toString());");
                                 out.println("\t\t\t\t}");
                                 out.println("\t\t\t\tlex.nextToken();");
-                            } else if (nonTerminals.containsKey(i) && !getNonTerm(i).getReturnType().equals("void")) {
+                            } else if (nonTerminals.containsKey(name) && !getNonTerm(name).getReturnType().equals("void")) {
 //                              //out.print(String.format("                children.add(new Tree(\"%1$s\", %1$s()));\n", i));
-                                out.print(String.format("\t\t\t\t" + i + ".add(" + i + "());\n", i));
+                                out.print(String.format("\t\t\t\t" + name + ".add(" + name + "(" + node.getCallAttrs() + "));\n", name));
                             } else {
-                                out.print(String.format("\t\t\t\t%s();\n", i));
+                                out.println("\t\t\t\t" + name + "(" + node.getCallAttrs() + ");");
                             }
                         }
                         if (!prod.getJavaCode().isEmpty()) {
@@ -357,6 +367,9 @@ public class Generator {
 
     private String refactor(String content) {
         content = content.trim();
+        if (content.length() == 0) {
+            return "";
+        }
         if (content.charAt(0) == '{' && content.charAt(content.length() - 1) == '}') {
             return content.substring(1, content.length() - 1).trim();
         }
@@ -382,7 +395,7 @@ public class Generator {
         out.println(header);
 
         out.print("public enum Token {\n    ");
-        List<String> tokenNames = new ArrayList<String>(terminals.keySet());
+        List<String> tokenNames = new ArrayList<>(terminals.keySet());
         for (int i = 0; i < tokenNames.size(); i++) {
             out.print(tokenNames.get(i) + (i != tokenNames.size() - 1 ? ", " : ""));
         }
@@ -392,14 +405,14 @@ public class Generator {
 
     private void computeFirst() {
         for (String name : terminals.keySet()) {
-            HashSet<String> set = new HashSet<String>();
+            HashSet<String> set = new HashSet<>();
             set.add(name);
             first.put(name, set);
         }
         for (String name : nonTerminals.keySet()) {
-            first.put(name, new HashSet<String>());
+            first.put(name, new HashSet<>());
             for (Production production : nonTerminals.get(name).getProductionList()) {
-                if (production.get(0).equals(EPS)) {
+                if (production.get(0).getName().equals(EPS)) {
                     first.get(name).add(EPS);
                 }
             }
@@ -411,8 +424,9 @@ public class Generator {
             for (String name : nonTerminals.keySet()) {
                 for (Production production : nonTerminals.get(name).getProductionList()) {
                     for (int i = 0; i < production.size(); i++) {
-                        if (first.get(production.get(i)).contains(EPS)) {
-                            for (String cur : first.get(production.get(i))) {
+                        String label = production.get(i).getName();
+                        if (first.get(label).contains(EPS)) {
+                            for (String cur : first.get(label)) {
                                 if (!first.get(name).contains(cur)) {
                                     first.get(name).add(cur);
                                     changed = true;
@@ -425,7 +439,7 @@ public class Generator {
                                 }
                             }
                         } else {
-                            for (String cur : first.get(production.get(i))) {
+                            for (String cur : first.get(label)) {
                                 if (!first.get(name).contains(cur)) {
                                     first.get(name).add(cur);
                                     changed = true;
@@ -452,30 +466,30 @@ public class Generator {
             for (String name : nonTerminals.keySet()) {
                 for (Production production : nonTerminals.get(name).getProductionList()) {
                     for (int i = 0; i < production.size() - 1; i++) {
-                        if (nonTerminals.containsKey(production.get(i))) {
-                            for (String cur : first.get(production.get(i + 1))) {
-                                if (!cur.equals(EPS) && !follow.get(production.get(i)).contains(cur)) {
-                                    follow.get(production.get(i)).add(cur);
+                        if (nonTerminals.containsKey(production.get(i).getName())) {
+                            for (String cur : first.get(production.get(i + 1).getName())) {
+                                if (!cur.equals(EPS) && !follow.get(production.get(i).getName()).contains(cur)) {
+                                    follow.get(production.get(i).getName()).add(cur);
                                     changed = true;
                                 }
                             }
                         }
                     }
                     int i = production.size() - 1;
-                    if (nonTerminals.containsKey(production.get(i))) {
+                    if (nonTerminals.containsKey(production.get(i).getName())) {
                         for (String cur : follow.get(name)) {
-                            if (!cur.equals(EPS) && !follow.get(production.get(i)).contains(cur)) {
-                                follow.get(production.get(i)).add(cur);
+                            if (!cur.equals(EPS) && !follow.get(production.get(i).getName()).contains(cur)) {
+                                follow.get(production.get(i).getName()).add(cur);
                                 changed = true;
                             }
                         }
                     }
-                    if (production.size() > 1 && first.get(production.get(production.size() - 1)).contains(EPS)) {
+                    if (production.size() > 1 && first.get(production.get(production.size() - 1).getName()).contains(EPS)) {
                         i = production.size() - 2;
-                        if (nonTerminals.containsKey(production.get(i))) {
-                            for (String cur : follow.get(production.get(i + 1))) {
-                                if (!cur.equals(EPS) && !follow.get(production.get(i)).contains(cur)) {
-                                    follow.get(production.get(i)).add(cur);
+                        if (nonTerminals.containsKey(production.get(i).getName())) {
+                            for (String cur : follow.get(production.get(i + 1).getName())) {
+                                if (!cur.equals(EPS) && !follow.get(production.get(i).getName()).contains(cur)) {
+                                    follow.get(production.get(i).getName()).add(cur);
                                     changed = true;
                                 }
                             }
