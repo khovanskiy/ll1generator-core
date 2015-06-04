@@ -10,12 +10,12 @@ header : '@header' JAVA_CODE # headerLabel ;
 
 members : '@members' JAVA_CODE # membersLabel ;
 
-rule1 : NON_TERM_NAME inherited? ('returns' synthesized)? ':' nonterminalProduction ('|' nonterminalProduction)* ';' # nonTerminalLabel
+rule1 : NON_TERM_NAME inherited? ('->' synthesized)? ':' nonterminalProduction ('|' nonterminalProduction)* ';' # nonTerminalLabel
       | TERM_NAME ':' terminalProduction ('|' terminalProduction)* ';' # terminalLabel ;
 
 inherited : declAttrs ;
 declAttrs : '(' arg (',' arg)* ')' ;
-callAttrs : '(' argName (',' argName)* ')' ;
+callAttrs : '(' JAVA_CODE (',' JAVA_CODE)* ')' ;
 
 arg : argType argName ;
 
@@ -24,9 +24,9 @@ argName: NON_TERM_NAME | TERM_NAME | MIXED_CASE;
 
 synthesized : NON_TERM_NAME | TERM_NAME | MIXED_CASE ;
 
-nonterminalVariant : NON_TERM_NAME | TERM_NAME ;
+nonterminalVariant : ((NON_TERM_NAME callAttrs?)| TERM_NAME);
 
-nonterminalProduction : (nonterminalVariant callAttrs?)* JAVA_CODE? ;
+nonterminalProduction : nonterminalVariant* JAVA_CODE? ;
 
 terminalProduction : STRING+ ;
 

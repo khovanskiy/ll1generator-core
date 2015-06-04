@@ -45,7 +45,7 @@ public class Production {
         return nodes;
     }
 
-    @Override
+    /*@Override
     public String toString() {
         StringBuilder stringBuilder = new StringBuilder();
         for (Node cur : nodes) {
@@ -53,5 +53,5 @@ public class Production {
         }
         stringBuilder.delete(stringBuilder.length() - 1, stringBuilder.length());
         return stringBuilder.toString();
-    }
+    }*/
 }

@@ -10,11 +10,13 @@ public class LL1GeneratorCoreTest {
     @Test
     public void testRegexpGrammar() throws Exception {
         InputStream is = new ByteArrayInputStream("(abc)*".getBytes());
-        /*RegexpParser parser = new RegexpParser();
-        Tree tree = parser.parse(is);
+        //MathParser parser = new MathParser();
+
+        RegexpParser parser = new RegexpParser();
+        Tree tree = parser.parse(is, "Test grammar");
 
         TreeVisualizer visualizer = new TreeVisualizer(tree, "output.html");
         visualizer.render();
-        is.close();*/
+        is.close();
     }
 }

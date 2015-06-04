@@ -9,7 +9,7 @@ public class LL1GeneratorCoreMain {
     public static void main(String[] args) {
         Generator generator = new Generator(true);
         try {
-            generator.read(new File("Math"), "math");
+            generator.read(new File("Regexp"), "regexp");
             generator.generateFiles();
         } catch (IOException e) {
             e.printStackTrace();

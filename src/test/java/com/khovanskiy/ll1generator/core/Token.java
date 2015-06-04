@@ -1,6 +1,5 @@
-
 package com.khovanskiy.ll1generator.core;
-
+import com.khovanskiy.ll1generator.core.Tree;
 public enum Token {
-    ADD, PLUS2, EOF
+    OR, OPEN_BRACKET, EPS, CLOSE_BRACKET, ASTERISK, CHAR, EOF
 }

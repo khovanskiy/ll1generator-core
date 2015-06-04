@@ -6,9 +6,9 @@ package com.khovanskiy.ll1generator.core;
 
 }
 
-math(Integer a , Integer b) returns Integer : add(a, b) { return add.get(0); } | plus2(a) { return plus2.get(0); };
-add(Integer a , Integer b) returns Integer : ADD { return a + b; } ;
-plus2(Integer a) returns Integer: PLUS2 { return a + 2; } ;
+math(Integer a , Integer b) -> Integer : add({Math.abs(a)}, {Math.abs(b)}) { return add.get(0); } | plus2({Math.abs(a)}) { return plus2.get(0); };
+add(Integer a , Integer b) -> Integer : ADD { return a + b; } ;
+plus2(Integer a) -> Integer: PLUS2 { return a + 2; } ;
 
 ADD : 'add';
 PLUS2 : 'plus2';

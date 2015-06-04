@@ -5,7 +5,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * @author Victor Khovanskiy
@@ -15,24 +14,26 @@ public class Node {
     private String returnType = "void";
     private List<Production> productionList = new ArrayList<>();
 
+    private List<String> callAttrs = new ArrayList<>();
+    private final Map<String, String> declAttrs = new HashMap<>();
+
     public Node(String name) {
         this.name = name;
     }
 
-    public Set<Map.Entry<String, String>> getAttrs() {
-        return attrs.entrySet();
+    public void putDeclAttrs(String name, String type) {
+        declAttrs.put(name, type);
     }
 
-    public void setAttrs(String name, String type) {
-        attrs.put(name, type);
-    }
-
-    public String getDeclAttrs() {
+    String getDeclAttrs(boolean withTypes) {
         StringBuilder builder = new StringBuilder();
-        Iterator<Map.Entry<String, String>> iterator = getAttrs().iterator();
+        Iterator<Map.Entry<String, String>> iterator = declAttrs.entrySet().iterator();
         while (iterator.hasNext()) {
             Map.Entry<String, String> entry = iterator.next();
-            builder.append(entry.getValue()).append(" ").append(entry.getKey());
+            if (withTypes) {
+                builder.append(entry.getValue()).append(" ");
+            }
+            builder.append(entry.getKey());
             if (iterator.hasNext()) {
                 builder.append(", ");
             }
@@ -42,10 +43,10 @@ public class Node {
 
     public String getCallAttrs() {
         StringBuilder builder = new StringBuilder();
-        Iterator<Map.Entry<String, String>> iterator = getAttrs().iterator();
+        Iterator<String> iterator = callAttrs.iterator();
         while (iterator.hasNext()) {
-            Map.Entry<String, String> entry = iterator.next();
-            builder.append(entry.getKey());
+            String entry = iterator.next();
+            builder.append(entry);
             if (iterator.hasNext()) {
                 builder.append(", ");
             }
@@ -53,7 +54,9 @@ public class Node {
         return builder.toString();
     }
 
-    private Map<String, String> attrs = new HashMap<>();
+    public void setCallAttrs(List<String> callAttrs) {
+        this.callAttrs = callAttrs;
+    }
 
     @Override
     public boolean equals(Object o) {
@@ -64,12 +67,12 @@ public class Node {
         return name;
     }
 
-    public void setReturnType(String s) {
-        this.returnType = s;
-    }
-
     public String getReturnType() {
         return this.returnType;
+    }
+
+    public void setReturnType(String s) {
+        this.returnType = s;
     }
 
     public void add(Production production) {
