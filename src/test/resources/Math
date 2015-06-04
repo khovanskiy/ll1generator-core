@@ -6,10 +6,13 @@ package com.khovanskiy.ll1generator.core;
 
 }
 
-math(Integer a , Integer b) -> Integer : add({Math.abs(a)}, {Math.abs(b)}) { return add.get(0); } | plus2({Math.abs(a)}) { return plus2.get(0); };
-add(Integer a , Integer b) -> Integer : ADD { return a + b; } ;
-plus2(Integer a) -> Integer: PLUS2 { return a + 2; } ;
+math -> Integer : operation { return operation.get(0); } ;
+operation-> Integer : NUMBER NUMBER binary({Integer.parseInt(NUMBER.get(0))}, {Integer.parseInt(NUMBER.get(1))}) { return binary.get(0); };
+binary(Integer a, Integer b) -> Integer : plus({a}, {b}) { return plus.get(0); } | mul({a}, {b}) { return mul.get(0); } ;
+plus(Integer a, Integer b) -> Integer : PLUS { return a + b; } ;
+mul(Integer a, Integer b) -> Integer :  MUL { return a * b; } ;
 
-ADD : 'add';
-PLUS2 : 'plus2';
+NUMBER : '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9';
+PLUS : '+';
+MUL : '*';
 
