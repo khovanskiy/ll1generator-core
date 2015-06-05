@@ -18,7 +18,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * @author Victo Khovanskiy
+ * @author Victor Khovanskiy
  */
 public class Generator {
     private boolean DEBUG;
@@ -26,7 +26,7 @@ public class Generator {
     private static final String EOF = "EOF";
     private static final String EPS = "EPS";
 
-    private String grammar_name;
+    private String grammarName;
     private Node start;
 
     private final HashMap<String, Node> nonTerminals = new HashMap<>();
@@ -34,14 +34,15 @@ public class Generator {
     private final HashMap<String, HashSet<String>> first = new HashMap<>();
     private final HashMap<String, HashSet<String>> follow = new HashMap<>();
 
-    private String members = "", header = "";
+    private String members = "";
+    private String header = "";
 
     public Generator(boolean debug) {
         this.DEBUG = debug;
     }
 
     public void read(File file, String startRule) throws IOException {
-        grammar_name = file.getName().split("[.]")[0];
+        grammarName = file.getName().split("[.]")[0];
         ANTLRInputStream input = new ANTLRInputStream(new FileInputStream(file));
         GrammarLexer lexer = new GrammarLexer(input);
         CommonTokenStream tokens = new CommonTokenStream(lexer);
@@ -140,24 +141,33 @@ public class Generator {
         start = getNonTerm(startRule);
 
         if (DEBUG) {
-            System.out.println(grammar_name);
+            System.out.println(grammarName);
             System.out.println(start.getName());
-            System.out.println("=====================================");
             System.out.println("Nonterminals:");
-            printMap(nonTerminals);
-            System.out.println("=====================================");
+            printData(nonTerminals);
             System.out.println("Terminals:");
-            printMap(terminals);
+            printData(terminals);
         }
     }
 
-    public static void printMap(Map mp) {
+    /**
+     * Prints data map
+     *
+     * @param mp
+     */
+    public static void printData(Map mp) {
         for (Object o : mp.entrySet()) {
             Map.Entry pairs = (Map.Entry) o;
             System.out.println(pairs.getKey() + " = " + pairs.getValue());
         }
     }
 
+    /**
+     * Gets cached terminal by name
+     *
+     * @param name
+     * @return
+     */
     private Node getTerm(String name) {
         if (!terminals.containsKey(name)) {
             terminals.put(name, new Node(name));
@@ -165,6 +175,12 @@ public class Generator {
         return terminals.get(name);
     }
 
+    /**
+     * Gets cached nonterminal by name
+     *
+     * @param name nonterminal name
+     * @return
+     */
     private Node getNonTerm(String name) {
         if (!nonTerminals.containsKey(name)) {
             nonTerminals.put(name, new Node(name));
@@ -172,8 +188,13 @@ public class Generator {
         return nonTerminals.get(name);
     }
 
+    /**
+     * Generates lexer for grammar
+     *
+     * @throws IOException
+     */
     private void generateLexer() throws IOException {
-        final String LEXER_NAME = grammar_name + "Lexer";
+        final String LEXER_NAME = grammarName + "Lexer";
         File file = new File(GEN_DIR, LEXER_NAME + ".java");
         file.getParentFile().mkdirs();
         PrintWriter out = new PrintWriter(file);
@@ -250,9 +271,14 @@ public class Generator {
         out.close();
     }
 
+    /**
+     * Generates parser for grammar
+     *
+     * @throws IOException
+     */
     private void generateParser() throws IOException {
-        final String PARSER_NAME = grammar_name + "Parser";
-        final String LEXER_NAME = grammar_name + "Lexer";
+        final String PARSER_NAME = grammarName + "Parser";
+        final String LEXER_NAME = grammarName + "Lexer";
         File file = new File(GEN_DIR, PARSER_NAME + ".java");
         file.getParentFile().mkdirs();
         PrintWriter out = new PrintWriter(file);
@@ -356,6 +382,12 @@ public class Generator {
         out.close();
     }
 
+    /**
+     * Refactors call attrs
+     *
+     * @param context string like ({...}, ..., {...})
+     * @return
+     */
     private List<String> refactorCallAttrs(GrammarParser.CallAttrsContext context) {
         List<String> codes = new ArrayList<>(context.JAVA_CODE().size());
         for (TerminalNode code : context.JAVA_CODE()) {
@@ -364,6 +396,12 @@ public class Generator {
         return codes;
     }
 
+    /**
+     * Refactors java code
+     *
+     * @param javaCodeNode node for string like {...}
+     * @return
+     */
     private String refactorCode(TerminalNode javaCodeNode) {
         String content = javaCodeNode.getText().trim();
         if (content.length() == 0) {
@@ -375,6 +413,13 @@ public class Generator {
         return content;
     }
 
+    /**
+     * Adds prefix for each line in content
+     *
+     * @param prefix
+     * @param content
+     * @return
+     */
     private String prefix(String prefix, String content) {
         StringBuilder builder = new StringBuilder();
 
@@ -386,6 +431,11 @@ public class Generator {
         return builder.toString();
     }
 
+    /**
+     * Generates tokens for gramar
+     *
+     * @throws IOException
+     */
     private void generateTokens() throws IOException {
         File file = new File(GEN_DIR, "Token.java");
         file.getParentFile().mkdirs();
@@ -402,6 +452,16 @@ public class Generator {
         out.close();
     }
 
+    /**
+     * Computes FIRST set
+     *
+     * FIRST = {A-> null for A in N}
+     * while (changed):
+     *  changed = false
+     *  for (A -> y in Г)
+     *      FIRST(A) U= FIRST(y)
+     *      if (|FIRST(A)|) is changed => changed:=true
+     */
     private void computeFirst() {
         for (String name : terminals.keySet()) {
             HashSet<String> set = new HashSet<>();
@@ -452,6 +512,20 @@ public class Generator {
         } while (changed);
     }
 
+    /**
+     * Computes FOLLOW set
+     *
+     * FOLLOW = {A->null for A in N}
+     * FOLLOW(S) = {$}
+     *
+     * while (changed :
+     *      changed = false;
+     *      for (A -> y in Г):
+     *          for (y = Bb):
+     *              FOLLOW(B) U= FIRST(b) \ {eps}
+     *              if (eps in FIRST(b)):
+     *                  FOLLOW(B) U= FOLLOW(A)
+     */
     private void computeFollow() {
         for (String name : nonTerminals.keySet()) {
             follow.put(name, new HashSet<>());
@@ -499,6 +573,11 @@ public class Generator {
         } while (changed);
     }
 
+    /**
+     * Generates all required files
+     *
+     * @throws IOException
+     */
     public void generateFiles() throws IOException {
         generateTokens();
         generateLexer();
@@ -506,12 +585,10 @@ public class Generator {
         computeFollow();
 
         if (DEBUG) {
-            System.out.println("=====================================");
-            System.out.println("first:");
-            printMap(first);
-            System.out.println("=====================================");
-            System.out.println("follow:");
-            printMap(follow);
+            System.out.println("FIRST set:");
+            printData(first);
+            System.out.println("FOLLOW set:");
+            printData(follow);
         }
 
         generateParser();

@@ -9,14 +9,14 @@ import com.khovanskiy.ll1generator.core.Tree;
 
 regexp(String name) -> Tree : t d { return new Tree("RegExp \"" + name + "\"", t.get(0), d.get(0)); };
 d -> Tree : OR t d { return new Tree("D", new Tree("|"), t.get(0), d.get(0));} | {return new Tree("D", new Tree("eps"));} ;
-t -> Tree : f p {return new Tree("T", f.get(0), p.get(0));} ;
-p -> Tree : f p {return new Tree("P", f.get(0), p.get(0));} | {return new Tree("P", new Tree("eps"));};
-f -> Tree : n w {return new Tree("F", n.get(0), w.get(0));};
-w -> Tree : ASTERISK w {return new Tree("W", new Tree(ASTERISK.get(0)), w.get(0));} | {return new Tree("W", new Tree("eps"));};
+t -> Tree : f p {if (f.get(0).temp != null) return new Tree("T+", f.get(0), new Tree("P", new Tree("F", f.get(0).temp, new Tree("W", new Tree("*"), new Tree("W", new Tree("eps")))), p.get(0))); return new Tree("T", f.get(0), p.get(0));} ;
+p -> Tree : f p {Tree res = new Tree("P", f.get(0), p.get(0)); return res;} | {return new Tree("P", new Tree("eps"));};
+f -> Tree : n w {Tree res = new Tree("F" + w.get(0).getNode(), n.get(0), w.get(0)); if (w.get(0).getNode().equals("+")) res.temp = n.get(0); return res;};
+w -> Tree : ASTERISK w {if (ASTERISK.get(0).equals("*")) return new Tree("*", new Tree("*"), w.get(0)); else return new Tree("+", new Tree("eps"));} | {return new Tree("W", new Tree("eps"));};
 n -> Tree : OPEN_BRACKET regexp({""}) CLOSE_BRACKET {return new Tree("N", new Tree(OPEN_BRACKET.get(0)), regexp.get(0), new Tree(CLOSE_BRACKET.get(0)));} | CHAR {return new Tree("N", new Tree(CHAR.get(0)));};
 
 OR: '|';
 OPEN_BRACKET : '(' ;
 CLOSE_BRACKET : ')' ;
-ASTERISK: '*' ;
+ASTERISK: '*' | '+';
 CHAR : 'a' | 'b' | 'c' | 'd' | 'e' | 'f';
