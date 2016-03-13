@@ -9,7 +9,7 @@ public class LL1GeneratorCoreTest {
 
     @Test
     public void testRegexpGrammar() throws Exception {
-        InputStream is = new ByteArrayInputStream("a++".getBytes());
+        InputStream is = new ByteArrayInputStream("a+".getBytes());
         /*MathParser parser = new MathParser();
         System.out.println("Answer = " + parser.parse(is));*/
 
